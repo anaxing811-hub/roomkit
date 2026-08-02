@@ -18,11 +18,15 @@ dist-ssr
 # personal content, and they stay on the machine that created them.
 #
 # Photos you took of your own belongings.
-public/uploads/
+/public/uploads/
 
 # Orphaned state from the old auto-sync backend, kept locally until you delete
 # it. It is a complete dump of your inventory.
-data/
+#
+# The leading slash matters: a bare `data/` matches a directory of that name at
+# ANY depth, which silently swallows src/data/ and src/features/data/ -- real
+# source code that must be in the repo.
+/data/
 
 # Exports from the "Export Database Backup" button, wherever they land.
 my-room-backup*.json
