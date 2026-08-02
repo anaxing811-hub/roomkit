@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# ── Your data never goes to GitHub ──────────────────────────────────────────
+# RoomKit is a private inventory of your own room. The code is safe to publish;
+# what the app stores about you is not. These are the only paths that ever hold
+# personal content, and they stay on the machine that created them.
+#
+# Photos you took of your own belongings.
+public/uploads/
+
+# Orphaned state from the old auto-sync backend, kept locally until you delete
+# it. It is a complete dump of your inventory.
+data/
+
+# Exports from the "Export Database Backup" button, wherever they land.
+my-room-backup*.json
+*.backup.json
+roomkit-backup*.json
+
+# ── Editor ──────────────────────────────────────────────────────────────────
+# .vscode is deliberately NOT ignored: launch.json and tasks.json are what make
+# F5 start the whole app, so they belong in the repo. Only per-user editor
+# state is excluded.
+.vscode/settings.json
+.vscode/*.log
+.history
+
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Secrets, if you ever add any (ngrok tokens, API keys)
+.env
+.env.*
+!.env.example

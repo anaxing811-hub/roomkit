@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      viewport-fit=cover lets the page paint under the notch and home indicator;
+      the layout pays that back with env(safe-area-inset-*) padding.
+      user-scalable=no stops the double-tap zoom that otherwise makes a
+      home-screen app feel like a web page.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>RoomKit — personal inventory</title>
+    <meta name="description" content="Private, offline-first inventory, room organisation and maintenance tracker." />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#2f7d7a" />
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <!--
+      iOS standalone mode. `apple-mobile-web-app-capable` is what removes
+      Safari's address bar and bottom toolbar once the link is added to the
+      Home Screen; `black-translucent` extends the app under the status bar so
+      there's no grey band above the header.
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="RoomKit" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- One person's own data. Keep it out of every index. -->
+    <meta name="robots" content="noindex, nofollow" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

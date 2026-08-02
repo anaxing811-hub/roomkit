@@ -1,0 +1,188 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/roboto-slab";
+@import "@fontsource-variable/merriweather";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.148 0.004 228.8);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.148 0.004 228.8);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.148 0.004 228.8);
+    --primary: oklch(0.511 0.096 186.391);
+    --primary-foreground: oklch(0.984 0.014 180.72);
+    --secondary: oklch(0.967 0.001 286.375);
+    --secondary-foreground: oklch(0.21 0.006 285.885);
+    --muted: oklch(0.963 0.002 197.1);
+    --muted-foreground: oklch(0.56 0.021 213.5);
+    --accent: oklch(0.963 0.002 197.1);
+    --accent-foreground: oklch(0.218 0.008 223.9);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.925 0.005 214.3);
+    --input: oklch(0.925 0.005 214.3);
+    --ring: oklch(0.723 0.014 214.4);
+    --chart-1: oklch(0.872 0.007 219.6);
+    --chart-2: oklch(0.56 0.021 213.5);
+    --chart-3: oklch(0.45 0.017 213.2);
+    --chart-4: oklch(0.378 0.015 216);
+    --chart-5: oklch(0.275 0.011 216.9);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.987 0.002 197.1);
+    --sidebar-foreground: oklch(0.148 0.004 228.8);
+    --sidebar-primary: oklch(0.6 0.118 184.704);
+    --sidebar-primary-foreground: oklch(0.984 0.014 180.72);
+    --sidebar-accent: oklch(0.963 0.002 197.1);
+    --sidebar-accent-foreground: oklch(0.218 0.008 223.9);
+    --sidebar-border: oklch(0.925 0.005 214.3);
+    --sidebar-ring: oklch(0.723 0.014 214.4);
+}
+
+.dark {
+    --background: oklch(0.148 0.004 228.8);
+    --foreground: oklch(0.987 0.002 197.1);
+    --card: oklch(0.218 0.008 223.9);
+    --card-foreground: oklch(0.987 0.002 197.1);
+    --popover: oklch(0.218 0.008 223.9);
+    --popover-foreground: oklch(0.987 0.002 197.1);
+    --primary: oklch(0.437 0.078 188.216);
+    --primary-foreground: oklch(0.984 0.014 180.72);
+    --secondary: oklch(0.274 0.006 286.033);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.275 0.011 216.9);
+    --muted-foreground: oklch(0.723 0.014 214.4);
+    --accent: oklch(0.275 0.011 216.9);
+    --accent-foreground: oklch(0.987 0.002 197.1);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.56 0.021 213.5);
+    --chart-1: oklch(0.872 0.007 219.6);
+    --chart-2: oklch(0.56 0.021 213.5);
+    --chart-3: oklch(0.45 0.017 213.2);
+    --chart-4: oklch(0.378 0.015 216);
+    --chart-5: oklch(0.275 0.011 216.9);
+    --sidebar: oklch(0.218 0.008 223.9);
+    --sidebar-foreground: oklch(0.987 0.002 197.1);
+    --sidebar-primary: oklch(0.704 0.14 182.503);
+    --sidebar-primary-foreground: oklch(0.277 0.046 192.524);
+    --sidebar-accent: oklch(0.275 0.011 216.9);
+    --sidebar-accent-foreground: oklch(0.987 0.002 197.1);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.56 0.021 213.5);
+}
+
+@theme inline {
+    --font-serif: 'Roboto Slab Variable', serif;
+    --font-heading: 'Merriweather Variable', serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-serif;
+    }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Pastel palette — soft blues, mint greens, muted teals.
+
+   Scoped deliberately to the navbar and the room-map counter dots. The rest of
+   the app keeps the preset's teal so the pastels stay a wayfinding signal
+   rather than a wash over everything.
+
+   Dark values are desaturated rather than lightened: a literal pastel on a
+   near-black background glares, so these hold the same hue at low chroma.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --pastel-nav-surface: oklch(0.972 0.014 210);
+  --pastel-nav-text: oklch(0.44 0.036 220);
+  --pastel-nav-hover: oklch(0.945 0.028 195);
+  --pastel-nav-active: oklch(0.878 0.055 188);
+  --pastel-nav-active-text: oklch(0.31 0.052 205);
+  --pastel-dot: oklch(0.9 0.05 200);
+  --pastel-dot-text: oklch(0.34 0.05 210);
+  --pastel-room-wall: oklch(0.965 0.012 215);
+  --pastel-room-floor: oklch(0.925 0.02 190);
+  --pastel-furniture: oklch(0.88 0.035 205);
+  --pastel-furniture-line: oklch(0.66 0.05 210);
+  --pastel-furniture-inner: oklch(0.955 0.014 200);
+}
+
+.dark {
+  --pastel-nav-surface: oklch(0.246 0.016 220);
+  --pastel-nav-text: oklch(0.8 0.024 205);
+  --pastel-nav-hover: oklch(0.3 0.026 200);
+  --pastel-nav-active: oklch(0.42 0.055 190);
+  --pastel-nav-active-text: oklch(0.96 0.02 190);
+  --pastel-dot: oklch(0.45 0.06 200);
+  --pastel-dot-text: oklch(0.96 0.02 200);
+  --pastel-room-wall: oklch(0.24 0.014 218);
+  --pastel-room-floor: oklch(0.29 0.02 195);
+  --pastel-furniture: oklch(0.37 0.03 205);
+  --pastel-furniture-line: oklch(0.62 0.045 205);
+  --pastel-furniture-inner: oklch(0.28 0.018 202);
+}
+
+/* The overdue-chore tab cue. Kept subtle: a slow breath, not a strobe, and
+   fully disabled for anyone who asked the OS to reduce motion. */
+@keyframes roomkit-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--destructive); }
+  50% { opacity: 0.72; box-shadow: 0 0 0 4px transparent; }
+}
+
+.chore-alert-pulse {
+  animation: roomkit-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chore-alert-pulse {
+    animation: none;
+  }
+}

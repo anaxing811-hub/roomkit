@@ -1,0 +1,74 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      /**
+       * The F5 default. preLaunchTask brings up the asset server + Vite in an
+       * integrated terminal and waits for Vite to report ready, then this opens
+       * localhost:5173 in a debuggable browser — breakpoints in src/ work.
+       */
+      "name": "▶ Run RoomKit (server + client)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/src",
+      "preLaunchTask": "roomkit: dev",
+      "sourceMapPathOverrides": {
+        "webpack:///./src/*": "${workspaceFolder}/src/*",
+        "/@fs/*": "*"
+      },
+      "userDataDir": true,
+      "presentation": { "group": "1_run", "order": 1 }
+    },
+    {
+      // Same, for anyone who'd rather debug in Chrome.
+      "name": "▶ Run RoomKit (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/src",
+      "preLaunchTask": "roomkit: dev",
+      "userDataDir": true,
+      "presentation": { "group": "1_run", "order": 2 }
+    },
+    {
+      /**
+       * Attaches to whatever is already running — use this when the dev task
+       * is up from a previous F5 and you just want the browser back, without
+       * starting a second copy on the same port.
+       */
+      "name": "↻ Attach browser (servers already running)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/src",
+      "userDataDir": true,
+      "presentation": { "group": "2_attach", "order": 1 }
+    },
+    {
+      // Node-side breakpoints in server.js (upload handling, static serving).
+      "name": "🐞 Debug asset server",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/server.js",
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal",
+      "presentation": { "group": "3_debug", "order": 1 }
+    }
+  ],
+  "compounds": [
+    {
+      /**
+       * Full-stack debugging: Node breakpoints in server.js AND browser
+       * breakpoints in src/, both live at once. Starts Vite via the task,
+       * and runs the server under the debugger rather than via concurrently.
+       */
+      "name": "🧩 Full stack (server + client debuggers)",
+      "configurations": ["🐞 Debug asset server", "↻ Attach browser (servers already running)"],
+      "preLaunchTask": "roomkit: dev (local HMR)",
+      "stopAll": true,
+      "presentation": { "group": "3_debug", "order": 2 }
+    }
+  ]
+}
