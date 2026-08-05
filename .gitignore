@@ -53,8 +53,11 @@ Thumbs.db
 # Secrets, if you ever add any (ngrok tokens, API keys)
 .env
 .env.*
-!.env.example
 
 # Deploy tooling scratch (created by `vercel` and `wrangler`)
 .vercel
 .wrangler
+
+# Keep the template that documents which vars are needed. This must stay
+# last: a later `.env*` rule would otherwise swallow it again.
+!.env.example
