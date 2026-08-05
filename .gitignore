@@ -54,3 +54,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Deploy tooling scratch (created by `vercel` and `wrangler`)
+.vercel
+.wrangler
