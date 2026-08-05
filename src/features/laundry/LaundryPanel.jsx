@@ -26,12 +26,13 @@ import { WEAR_LIMIT } from '@/lib/constants'
 import { daysSince, formatDate, relativeDays } from '@/lib/date'
 import { useApp } from '@/store/AppStateContext'
 import { wearableClothing } from '@/store/selectors'
+import { Photo } from '@/components/Photo'
 
 function Thumb({ image }) {
   return (
     <div className="size-8 shrink-0 overflow-hidden rounded-md border border-border bg-muted/50">
       {image ? (
-        <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
+        <Photo src={image} alt="" className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
           <Shirt className="size-3.5 text-muted-foreground/60" />

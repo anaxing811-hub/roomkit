@@ -46,10 +46,39 @@ npm run dev
 
 ## Moving your data between devices
 
-There is **no background syncing**. Nothing is written to a server, nothing polls, and no
-device can overwrite another one behind your back. Each device keeps its own copy in
-`localStorage`, and you move data across deliberately, with the bar at the top of the
-dashboard:
+Two ways, and you pick per device. **Signed out, nothing leaves the machine** — that mode is
+unchanged and always available.
+
+### Option 1 — cloud sync (optional, needs a sign-in)
+
+Set the two Supabase env vars from `.env.example` and a **Sign in to sync** control appears.
+Sign in with a magic link, and items, chores, laundry and the room design sync across your
+devices on their own; photos go to a private storage bucket instead of eating localStorage.
+
+How it avoids the failure modes the previous sync had:
+
+| | Old whole-document sync | This |
+| --- | --- | --- |
+| Unit of sync | the entire state, one version number | one row per item / chore |
+| Two unrelated edits | collide → `409`, one rejected | never contend |
+| Conflict rule | version negotiation + a toast | newest server `updated_at` wins, silently |
+| `updated_at` | client-supplied | set by a Postgres trigger — a device with a wrong clock can't win |
+| Deletes | vanish, then reappear | tombstoned, so they actually propagate |
+
+Every table is behind row-level security keyed on your user id (`auth.uid() = user_id`), and
+photos live under `<your-uid>/…` in a private bucket whose policies check that first path
+segment. Another account can't read, edit, delete or overwrite your data even knowing its
+ids. Per-device chrome — theme, view mode, sort, the active category filter, closet
+dimensions — deliberately does **not** sync, because a filter set on the phone changing what
+the laptop displays is maddening.
+
+The publishable key is meant to ship in the bundle; it identifies the project and grants
+nothing on its own. **Never put the service-role key in `.env`** — it bypasses RLS entirely
+and would be readable by anyone who opens the deployed site.
+
+### Option 2 — manual export / import (always available)
+
+The bar at the top of the dashboard, usable whether or not you sync:
 
 | Control | What it does |
 | --- | --- |
@@ -87,7 +116,50 @@ would otherwise come back as `index.html` instead of an image.
 > **Which dev script?** `dev` sets `hmr.clientPort: 443`, which is required behind ngrok and
 > wrong on plain `localhost` — the HMR client dials `:443` on your own machine and never
 > connects. The app still loads and works; you just lose hot reload until you switch to
-> `dev:local`.
+> `dev:local`. (That script runs Vite with `--mode desk`, not `--mode local`: Vite reserves
+> `local` as a mode name because it collides with the `.env.local` postfix, and refuses to
+> start.)
+
+---
+
+## Deploying it privately
+
+The app is a static bundle — there is no server to host. Sign-in and row-level security are
+what protect the data, so the hosting itself doesn't have to be secret: someone who finds
+the URL gets a login screen with nothing behind it.
+
+### Vercel
+
+```bash
+npx vercel --prod
+```
+
+Add the two env vars under **Project → Settings → Environment Variables** (`VITE_SUPABASE_URL`
+and `VITE_SUPABASE_PUBLISHABLE_KEY`), then redeploy so the build picks them up. `vercel.json`
+already sets the SPA rewrite, immutable caching for `/assets/*`, and a no-cache header on
+`sw.js` so a new deploy is picked up instead of being served from the old service worker.
+
+Note that on the free Hobby tier, protecting a **production** URL with Vercel Authentication
+is a paid feature. You don't need it — the Supabase login is the gate — but don't assume the
+URL itself is private.
+
+### Cloudflare Pages + Access
+
+```bash
+npx wrangler pages deploy dist --project-name roomkit
+```
+
+Set the same two variables under **Pages → Settings → Environment variables**. Then add a
+free **Zero Trust → Access → Application** policy over the Pages hostname, allow-listing your
+own email. That gates the app shell itself at the edge, so you get a login before the bundle
+even loads — belt and braces alongside Supabase Auth. `public/_redirects` and `public/_headers`
+carry the Pages equivalents of the Vercel config.
+
+### Redirect URLs
+
+Whichever host you use, add its origin to **Supabase → Authentication → URL Configuration →
+Redirect URLs**, or the magic link will bounce. Add every origin you actually open the app
+from — `http://localhost:5173`, the Vercel domain, and the Pages domain.
 
 ---
 

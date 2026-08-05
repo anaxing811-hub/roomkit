@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { isClothing, isDirty, needsDeclutter } from '@/store/selectors'
+import { Photo } from '@/components/Photo'
 
 import { QuantityStepper } from './QuantityStepper'
 
@@ -70,7 +71,7 @@ export function ItemListRow({
       {/* thumbnail */}
       <div className="size-9 shrink-0 overflow-hidden rounded-md border border-border bg-muted/50">
         {item.image ? (
-          <img src={item.image} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <Photo src={item.image} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <Icon className="size-4 text-muted-foreground/60" />

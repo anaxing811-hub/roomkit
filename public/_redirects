@@ -1,0 +1,3 @@
+# SPA fallback for Cloudflare Pages. 200 (rewrite) not 301, so deep links keep
+# their URL instead of bouncing to /.
+/*  /index.html  200

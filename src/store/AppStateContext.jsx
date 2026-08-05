@@ -60,6 +60,7 @@ import {
   writeSessionKey,
 } from '@/lib/storage'
 import { SEED_ITEMS } from '@/data/seed'
+import { useCloudSync } from '@/store/useCloudSync'
 
 const defaultPrefs = () => ({
   theme: 'system',
@@ -78,6 +79,9 @@ const defaultPrefs = () => ({
   furnitureVault: [], // deleted pieces, restorable with their records intact
   lightingMode: 'auto', // 'auto' | 'day' | 'night'
   stageMode: 'canvas', // 'canvas' (manual workbench) | 'model' (2D silhouette)
+  // Per-device, deliberately: signing out on the phone shouldn't disable sync
+  // on the laptop. Never sent to the cloud.
+  cloudSync: true,
 })
 
 const defaultLaundry = () => ({ entries: [], history: [] })
@@ -780,6 +784,42 @@ function reducer(state, action) {
       }
     }
 
+    /**
+     * Cloud sync landing an already-reconciled snapshot.
+     *
+     * Unlike `state/replaceAll` this is NOT destructive — useCloudSync has
+     * already merged local and remote per row and decided the winners, so the
+     * arrays arriving here are the answer, not a competing version. A null
+     * field means "the server has nothing for this", which must leave the local
+     * value alone rather than blanking it: signing in on a device that has been
+     * used offline should never empty its laundry ledger.
+     *
+     * Per-device chrome is untouched by design. The whole reason the last sync
+     * was unpleasant is that a category filter set on the phone changed what
+     * the laptop displayed.
+     */
+    case 'cloud/merge': {
+      const p = action.payload ?? {}
+      const items = Array.isArray(p.items) ? p.items.map(normaliseItem) : state.items
+      const chores = Array.isArray(p.chores) && p.chores.length ? p.chores : state.chores
+      const laundry = p.laundry ? { ...defaultLaundry(), ...p.laundry } : state.laundry
+
+      let prefs = state.prefs
+      if (p.design && typeof p.design === 'object') {
+        const d = p.design
+        prefs = {
+          ...state.prefs,
+          furniture: d.furniture ? normaliseFurniture(d.furniture) : state.prefs.furniture,
+          furnitureVault: d.furnitureVault ?? state.prefs.furnitureVault,
+          customLocations: d.customLocations ?? state.prefs.customLocations,
+          customCategories: d.customCategories ?? state.prefs.customCategories,
+          customTracks: d.customTracks ?? state.prefs.customTracks,
+        }
+      }
+
+      return { ...state, items, chores, laundry, prefs }
+    }
+
     default:
       return state
   }
@@ -957,6 +997,15 @@ export function AppStateProvider({ children }) {
     [flush]
   )
 
+  /* ══ optional cloud sync ══════════════════════════════════════════════
+   *
+   * Off unless the Supabase env vars are present AND you have signed in. With
+   * neither, this hook is inert and RoomKit behaves exactly as it does
+   * offline — local storage plus the manual export/import above, which stay
+   * available whether or not you use the cloud.
+   * ═════════════════════════════════════════════════════════════════════ */
+  const cloud = useCloudSync({ state, dispatch, enabled: state.prefs.cloudSync !== false })
+
   const value = useMemo(
     () => ({
       state,
@@ -968,8 +1017,9 @@ export function AppStateProvider({ children }) {
       inspectBackup,
       importDatabase,
       buildBackup,
+      cloud,
     }),
-    [state, flush, storageError, exportDatabase, inspectBackup, importDatabase, buildBackup]
+    [state, flush, storageError, exportDatabase, inspectBackup, importDatabase, buildBackup, cloud]
   )
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>

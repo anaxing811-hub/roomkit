@@ -36,7 +36,9 @@ function lanAddress(port) {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   /**
-   * `npm run dev:local` runs with mode "local" and drops the tunnel HMR block.
+   * `npm run dev:local` runs with mode "desk" and drops the tunnel HMR block.
+   * The mode is not called "local": Vite reserves that name because it
+   * collides with the .env.local postfix, and throws before the server starts.
    *
    * `hmr.clientPort: 443` tells the HMR client to open its socket on port 443
    * no matter where the page came from. Correct behind ngrok -- the browser is
@@ -46,7 +48,7 @@ export default defineConfig(({ mode }) => {
    * affected. Tunnel config is the default because the phone is the primary
    * client here.
    */
-  const localOnly = mode === 'local'
+  const localOnly = mode === 'desk'
   const PORT = 5173
   const API_TARGET = `http://127.0.0.1:${process.env.API_PORT ?? 5001}`
 

@@ -21,6 +21,7 @@ import { DECLUTTER_DAYS } from '@/lib/constants'
 import { daysSince, relativeDays } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { isClothing, isDirty, needsDeclutter } from '@/store/selectors'
+import { Photo } from '@/components/Photo'
 
 import { LocationSelect } from './LocationSelect'
 import { QuantityStepper } from './QuantityStepper'
@@ -63,12 +64,7 @@ export function ItemCard({
         {/* thumbnail */}
         <div className="size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/50">
           {item.image ? (
-            <img
-              src={item.image}
-              alt={item.name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
+            <Photo src={item.image} alt={item.name} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <Icon className="size-6 text-muted-foreground/60" />

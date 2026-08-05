@@ -51,11 +51,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { FALLBACK_CATEGORY } from '@/lib/constants'
 import { probe, uploadImage } from '@/lib/api'
+import { uploadPhoto } from '@/lib/supabase'
 import { compressImage, dataUrlToBlob } from '@/lib/image'
 import { organizeItem, suggestTags } from '@/features/ai/organizer'
 import { removeBackground } from '@/features/ai/backgroundRemoval'
 import { useApp } from '@/store/AppStateContext'
 import { allCategories, allLayers } from '@/store/selectors'
+import { Photo } from '@/components/Photo'
 
 import { ImageCropDialog } from './ImageCropDialog'
 import { LocationSelect } from './LocationSelect'
@@ -78,7 +80,7 @@ const blank = () => ({
 const kb = (bytes) => `${Math.max(1, Math.round(bytes / 1024))} KB`
 
 export function ItemDialog({ open, onOpenChange, item }) {
-  const { state, dispatch } = useApp()
+  const { state, dispatch, cloud } = useApp()
   const [draft, setDraft] = useState(blank)
   const [thinking, setThinking] = useState(false)
   const [suggestion, setSuggestion] = useState(null)
@@ -169,20 +171,37 @@ export function ItemDialog({ open, onOpenChange, item }) {
       const result = await compressImage(source, { hasAlpha })
 
       /**
-       * When the asset server is running the compressed bytes go to a real
-       * file in public/uploads/ and only the relative path is stored — that
-       * keeps the exported backup small and human-readable. Without a server
-       * we inline the data URI so the photo still travels inside the backup
-       * file. The probe is per-upload and cheap; there's no ambient polling.
+       * Three places a photo can live, in descending order of preference:
+       *
+       *   cloud  — signed in: the private Supabase bucket. Syncs to the phone,
+       *            survives clearing the browser, costs no localStorage.
+       *   file   — asset server running: a real file in public/uploads/, with
+       *            only the relative path stored.
+       *   inline — neither: a data URI. Always works and travels inside the
+       *            backup file, but the whole app shares a ~5 MB localStorage
+       *            budget, so it's the last resort rather than the default.
+       *
+       * Each check is per-upload and cheap; nothing polls in the background.
        */
       let image = result.dataUrl
       let stored = 'inline'
+      const ext = result.format === 'png' ? 'png' : result.format === 'jpeg' ? 'jpg' : 'webp'
 
-      if (await probe()) {
+      if (cloud?.active) {
+        try {
+          setProcessing({ label: 'Uploading to your cloud…', progress: 1 })
+          const blob = await dataUrlToBlob(result.dataUrl)
+          image = await uploadPhoto(blob, ext)
+          stored = 'cloud'
+        } catch (err) {
+          toast.warning('Could not reach your cloud', { description: err.message })
+        }
+      }
+
+      if (stored === 'inline' && (await probe())) {
         try {
           setProcessing({ label: 'Saving to disk…', progress: 1 })
           const blob = await dataUrlToBlob(result.dataUrl)
-          const ext = result.format === 'png' ? 'png' : result.format === 'jpeg' ? 'jpg' : 'webp'
           const uploaded = await uploadImage(blob, `item.${ext}`)
           image = uploaded.path
           stored = 'file'
@@ -202,10 +221,10 @@ export function ItemDialog({ open, onOpenChange, item }) {
           stored,
         },
       })
+      const where =
+        stored === 'cloud' ? ' · synced to your cloud' : stored === 'file' ? ' · saved to disk' : ''
       toast.success(stripBackground ? 'Background removed' : 'Photo added', {
-        description: `${result.format.toUpperCase()} · ${kb(result.bytes)}${
-          stored === 'file' ? ' · saved to disk' : ''
-        }`,
+        description: `${result.format.toUpperCase()} · ${kb(result.bytes)}${where}`,
       })
     } catch (err) {
       toast.error(stripBackground ? 'Background removal failed' : 'Image failed', {
@@ -293,7 +312,7 @@ export function ItemDialog({ open, onOpenChange, item }) {
                   aria-label="Item photo preview"
                 >
                   {draft.image ? (
-                    <img src={draft.image} alt="" className="h-full w-full object-contain" />
+                    <Photo src={draft.image} alt="" className="h-full w-full object-contain" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
                       <ImagePlus className="size-6 text-muted-foreground/60" />

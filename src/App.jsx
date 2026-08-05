@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils'
 import { StaleOverlay } from '@/features/alerts/StaleOverlay'
 import { SettingsDialog } from '@/features/ai/SettingsDialog'
 import { DataTransferBar } from '@/features/data/DataTransferBar'
+import { CloudSyncBar } from '@/features/cloud/CloudSyncBar'
 import { ChoresPage } from '@/features/chores/ChoresPage'
 import { InventoryPage } from '@/features/inventory/InventoryPage'
 import { LaundryPanel } from '@/features/laundry/LaundryPanel'
@@ -237,6 +238,7 @@ export default function App() {
           )}
 
           {/* Manual database transfer, top of the dashboard on every screen. */}
+          <CloudSyncBar />
           <DataTransferBar />
 
           <GlobalSearch

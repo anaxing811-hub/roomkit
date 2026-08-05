@@ -23,6 +23,7 @@ import { SNOOZE_DAYS } from '@/lib/constants'
 import { daysSince, formatDate, relativeDays } from '@/lib/date'
 import { useApp } from '@/store/AppStateContext'
 import { declutterCandidates } from '@/store/selectors'
+import { Photo } from '@/components/Photo'
 
 const CATEGORY_ICON = {
   Clothes: Shirt,
@@ -92,12 +93,7 @@ export function StaleOverlay({ open, onOpenChange }) {
                   <div className="flex min-w-0 flex-wrap items-start gap-3">
                     <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-border bg-background">
                       {item.image ? (
-                        <img
-                          src={item.image}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
+                        <Photo src={item.image} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">
                           <Icon className="size-5 text-muted-foreground/60" />

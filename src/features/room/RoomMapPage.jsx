@@ -55,6 +55,7 @@ import { formatDate } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/store/AppStateContext'
 import { itemsAtLocation, totalUnits } from '@/store/selectors'
+import { Photo } from '@/components/Photo'
 
 import { FloorPlan } from './FloorPlan'
 import { useRoomClock } from './useRoomClock'
@@ -556,7 +557,7 @@ export function RoomMapPage({ onOpenLocation }) {
                 >
                   <div className="size-8 shrink-0 overflow-hidden rounded-md border border-border bg-muted/50">
                     {item.image ? (
-                      <img src={item.image} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      <Photo src={item.image} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         <Package className="size-3.5 text-muted-foreground/60" />
