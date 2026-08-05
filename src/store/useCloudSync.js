@@ -77,6 +77,33 @@ export function useCloudSync({ state, dispatch, enabled }) {
 
   /* ── auth ────────────────────────────────────────────────────────────── */
 
+  /**
+   * Surface a failed magic link instead of swallowing it.
+   *
+   * When a sign-in link can't be redeemed, Supabase redirects back with the
+   * reason in the URL fragment and the app otherwise just renders its normal
+   * signed-out state — which looks identical to never having clicked the link
+   * at all. That is a miserable thing to debug, so read the error out of the
+   * URL, say what happened, and clean the address bar.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const query = new URLSearchParams(window.location.search)
+    const code = hash.get('error_code') ?? query.get('error_code')
+    const desc = hash.get('error_description') ?? query.get('error_description')
+    if (!code && !desc) return
+
+    const readable = (desc ?? code ?? '').replace(/\+/g, ' ')
+    toast.error('That sign-in link did not work', {
+      description: /expired/i.test(readable)
+        ? 'The link had already expired. Send a fresh one — they are valid for an hour.'
+        : readable,
+      duration: 10000,
+    })
+    window.history.replaceState({}, '', window.location.pathname)
+  }, [])
+
   useEffect(() => {
     if (!isCloudConfigured) return
     let alive = true

@@ -29,7 +29,24 @@ export const supabase = isCloudConfigured
         // The magic link comes back as a #access_token fragment; let the client
         // consume it on load so we never have to parse the URL ourselves.
         detectSessionInUrl: true,
-        flowType: 'pkce',
+        /**
+         * Implicit, not PKCE, and deliberately.
+         *
+         * PKCE keeps a one-time verifier in the localStorage of the browser
+         * that *asked* for the link, and the sign-in only completes if the
+         * link is opened in that same browser. In practice a magic link gets
+         * opened wherever the mail app decides — Gmail's in-app browser, the
+         * phone when the link was requested on the laptop — and the exchange
+         * then fails silently: the email is marked confirmed, no session is
+         * created, and the app just looks logged out with nothing to explain
+         * why. Implicit puts the tokens in the URL fragment, so the link works
+         * from whichever browser opens it.
+         *
+         * The trade-off is that the token briefly appears in the URL. For a
+         * single-user private app over HTTPS that is the right call, and the
+         * fragment is cleared as soon as the client reads it.
+         */
+        flowType: 'implicit',
       },
     })
   : null
