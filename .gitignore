@@ -28,6 +28,10 @@ dist-ssr
 # source code that must be in the repo.
 /data/
 
+# Dated snapshots written by desktop archiving. A complete dump of the
+# inventory, so it stays on the machine that made it.
+/backups/
+
 # Exports from the "Export Database Backup" button, wherever they land.
 my-room-backup*.json
 *.backup.json

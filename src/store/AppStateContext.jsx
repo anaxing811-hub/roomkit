@@ -61,6 +61,7 @@ import {
 } from '@/lib/storage'
 import { SEED_ITEMS } from '@/data/seed'
 import { useCloudSync } from '@/store/useCloudSync'
+import { useDesktopArchive } from '@/features/data/useDesktopArchive'
 
 const defaultPrefs = () => ({
   theme: 'system',
@@ -1006,6 +1007,16 @@ export function AppStateProvider({ children }) {
    * ═════════════════════════════════════════════════════════════════════ */
   const cloud = useCloudSync({ state, dispatch, enabled: state.prefs.cloudSync !== false })
 
+  /**
+   * Only an archiving device writes to disk. A phone has no filesystem to
+   * write to and a viewing device has nothing to contribute.
+   */
+  const archive = useDesktopArchive({
+    enabled: cloud.active && cloud.isArchiver,
+    buildBackup,
+    syncStatus: cloud.status,
+  })
+
   const value = useMemo(
     () => ({
       state,
@@ -1018,8 +1029,9 @@ export function AppStateProvider({ children }) {
       importDatabase,
       buildBackup,
       cloud,
+      archive,
     }),
-    [state, flush, storageError, exportDatabase, inspectBackup, importDatabase, buildBackup, cloud]
+    [state, flush, storageError, exportDatabase, inspectBackup, importDatabase, buildBackup, cloud, archive]
   )
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>
