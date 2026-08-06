@@ -398,9 +398,8 @@ outputs constraining the reply to exactly the six valid locations. Item names, d
 and photos are sent to `api.anthropic.com` when it's on; the SDK is lazily imported so it
 never loads otherwise.
 
-> **On Claude 3.5 Sonnet:** `claude-3-5-sonnet-20241022` was retired on 28 October 2025 and
-> now returns 404, so it isn't wired in — `claude-sonnet-5` is the current Sonnet-tier model
-> and is used instead.
+> **On Claude, `claude-sonnet-5` is the current Sonnet-tier model
+> that is used.
 
 ---
 
