@@ -32,8 +32,11 @@ import { toast } from 'sonner'
 
 import { choreToRow, designFromPrefs, itemToRow, rowToChore, rowToItem } from '@/lib/cloudMap'
 import { isCloudConfigured, supabase } from '@/lib/supabase'
+import { useDeviceRegistry } from '@/features/cloud/useDeviceRegistry'
 
 const PUSH_DEBOUNCE_MS = 900
+/** Only used while the realtime socket is down. A healthy socket costs nothing. */
+const OFFLINE_POLL_MS = 45_000
 
 /** Stable stringify so key order never makes an unchanged row look dirty. */
 function fingerprint(row) {
@@ -63,6 +66,10 @@ export function useCloudSync({ state, dispatch, enabled }) {
   const [status, setStatus] = useState('idle') // idle | syncing | synced | error
   const [lastSyncedAt, setLastSyncedAt] = useState(null)
   const [error, setError] = useState(null)
+  // Whether the realtime socket is currently up. Drives the backstop poll and
+  // is shown in the UI, because "not live" explains a delay that would
+  // otherwise look like a bug.
+  const [live, setLive] = useState(false)
 
   const itemShadow = useRef(new Map())
   const choreShadow = useRef(new Map())
@@ -73,6 +80,9 @@ export function useCloudSync({ state, dispatch, enabled }) {
   stateRef.current = state
 
   const active = isCloudConfigured && enabled && Boolean(session?.user)
+  const userIdForRegistry = session?.user?.id ?? null
+  const registry = useDeviceRegistry({ userId: userIdForRegistry, enabled })
+  const canWrite = registry.canWrite
   const userId = session?.user?.id ?? null
 
   /* ── auth ────────────────────────────────────────────────────────────── */
@@ -259,7 +269,24 @@ export function useCloudSync({ state, dispatch, enabled }) {
   /* ── push ────────────────────────────────────────────────────────────── */
 
   const push = useCallback(async () => {
-    if (!isCloudConfigured || !userId || !hydrated.current) return
+    if (!isCloudConfigured || !userId) return
+    /**
+     * Only the device holding the writer role uploads. This is the guard that
+     * makes stale data harmless: a laptop that has been asleep for six hours
+     * has no code path to overwrite what the phone did in the meantime.
+     */
+    if (!canWrite) return
+    /**
+     * Never push on top of a state we have not reconciled with the server. If
+     * the first pull failed, retry it here rather than returning forever: the
+     * old behaviour left `hydrated` false for the whole session after a single
+     * flaky request, so a phone that lost signal once stopped syncing until it
+     * was reloaded, silently.
+     */
+    if (!hydrated.current) {
+      await pull({ silent: true })
+      if (!hydrated.current) return
+    }
     const s = stateRef.current
 
     const itemRows = s.items.map((i) => itemToRow(i, userId))
@@ -327,11 +354,15 @@ export function useCloudSync({ state, dispatch, enabled }) {
       setLastSyncedAt(new Date().toISOString())
       setStatus('synced')
       setError(null)
+      // Stamp who wrote last, so the other device can show it by name.
+      registry.noteWrite()
     } catch (err) {
       setStatus('error')
       setError(err.message)
     }
-  }, [userId])
+    // canWrite and pull must be real dependencies: a stale closure here means a
+    // device promoted to writer keeps refusing to write until it reloads.
+  }, [userId, canWrite, pull, registry])
 
   // Debounced so a quantity stepper held down is one write, not thirty.
   useEffect(() => {
@@ -343,31 +374,91 @@ export function useCloudSync({ state, dispatch, enabled }) {
 
   /* ── realtime ────────────────────────────────────────────────────────── */
 
+  /**
+   * Realtime is treated as an optimisation, never as the mechanism. iOS tears
+   * the websocket down the instant the screen locks or you switch apps, and it
+   * does not come back on its own. Relying on it alone is what made a phone
+   * edit never reach the laptop: both sockets were dead, so neither device
+   * heard anything, and the laptop went on believing its hours-old copy was
+   * current. The handlers below are the actual guarantee; this is the thing
+   * that makes it feel instant when the network happens to be cooperating.
+   */
   useEffect(() => {
     if (!active) return
+    const onChange = () => pull({ silent: true })
     const channel = supabase
       .channel('roomkit-sync')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'items', filter: `user_id=eq.${userId}` },
-        () => pull({ silent: true })
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chores', filter: `user_id=eq.${userId}` },
-        () => pull({ silent: true })
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'app_state', filter: `user_id=eq.${userId}` },
-        () => pull({ silent: true })
-      )
-      .subscribe()
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `user_id=eq.${userId}` }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chores', filter: `user_id=eq.${userId}` }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: `user_id=eq.${userId}` }, onChange)
+      .subscribe((channelStatus) => {
+        setLive(channelStatus === 'SUBSCRIBED')
+        // A recovered socket may have missed changes while it was down, so
+        // catch up rather than waiting for the next edit to arrive.
+        if (channelStatus === 'SUBSCRIBED') pull({ silent: true })
+      })
 
     return () => {
+      setLive(false)
       supabase.removeChannel(channel)
     }
   }, [active, userId, pull])
+
+  /* ── the handlers that actually make sync reliable ───────────────────── */
+
+  /**
+   * Coming back to the app is the single most important moment to re-check,
+   * and it was missing entirely. On a phone this is *the* sync event: you
+   * unlock, you switch back, and that is when the app must find out what
+   * changed while it was suspended.
+   */
+  useEffect(() => {
+    if (!active) return
+
+    const resume = () => {
+      if (document.visibilityState !== 'visible') return
+      pull({ silent: true })
+      if (canWrite) push()
+    }
+
+    /**
+     * Going away is the moment to get local edits out, while there is still a
+     * page to run the request. iOS frequently never fires `beforeunload`, and
+     * a debounce timer that has not elapsed dies with the suspended tab, which
+     * is how a last edit disappears.
+     */
+    const leaving = () => {
+      if (canWrite) push()
+    }
+
+    document.addEventListener('visibilitychange', resume)
+    window.addEventListener('focus', resume)
+    window.addEventListener('online', resume)
+    window.addEventListener('pagehide', leaving)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') leaving()
+    })
+
+    return () => {
+      document.removeEventListener('visibilitychange', resume)
+      window.removeEventListener('focus', resume)
+      window.removeEventListener('online', resume)
+      window.removeEventListener('pagehide', leaving)
+    }
+  }, [active, pull, push, canWrite])
+
+  /**
+   * Backstop poll. Only runs when the socket is NOT connected, so a healthy
+   * connection costs nothing, and a dead one still converges within a minute
+   * instead of never.
+   */
+  useEffect(() => {
+    if (!active || live) return
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') pull({ silent: true })
+    }, OFFLINE_POLL_MS)
+    return () => clearInterval(id)
+  }, [active, live, pull])
 
   /* ── actions the UI calls ────────────────────────────────────────────── */
 
@@ -393,13 +484,27 @@ export function useCloudSync({ state, dispatch, enabled }) {
       status,
       lastSyncedAt,
       error,
+      live,
       signInWithEmail,
       signOut,
       syncNow: async () => {
         await push()
         await pull()
       },
+      // Device roles, surfaced so the sidebar can show who is allowed to save.
+      devices: registry.devices,
+      device: registry.me,
+      deviceName: registry.myName,
+      role: registry.role,
+      canWrite: registry.canWrite,
+      isArchiver: registry.isArchiver,
+      writer: registry.writer,
+      claimSaving: registry.claimSaving,
+      setRole: registry.setRole,
+      setRoleFor: registry.setRoleFor,
+      renameDevice: registry.rename,
+      forgetDevice: registry.forget,
     }),
-    [session, active, status, lastSyncedAt, error, signInWithEmail, signOut, push, pull]
+    [session, active, status, lastSyncedAt, error, live, signInWithEmail, signOut, push, pull, registry]
   )
 }
