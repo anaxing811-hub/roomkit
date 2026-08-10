@@ -39,7 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   CATEGORIES,
   FALLBACK_CATEGORY,
@@ -47,6 +46,7 @@ import {
   LOCATIONS,
   SORT_MODES,
 } from '@/lib/constants'
+import { cn } from '@/lib/utils'
 import { useApp } from '@/store/AppStateContext'
 import {
   allCategories,
@@ -87,7 +87,7 @@ export function InventoryPage({
 
   const scopes = useMemo(
     () => [
-      { value: 'all', label: 'All Items Combined' },
+      { value: 'all', label: 'All Items Combined', short: 'All' },
       ...categories.map((c) => ({
         value: c,
         label: c === 'Clothes' ? 'Clothing' : c,
@@ -183,23 +183,51 @@ export function InventoryPage({
 
   return (
     <div className="space-y-3">
-      {/* ── Scope filter tabs ── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Tabs
-          value={prefs.categoryScope}
-          onValueChange={(v) => v && setPref({ categoryScope: v })}
-          className="min-w-0 flex-1"
-        >
-          <TabsList variant="line" className="w-full flex-wrap justify-start">
-            {scopes.map((scope) => (
-              <TabsTrigger key={scope.value} value={scope.value} className="text-xs">
-                {scope.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+      {/* ── Heading and counts ──
+             The counts live here, with the title, rather than sharing a row
+             with the filters. Previously they sat beside a fixed-height
+             TabsList, so as soon as the category tabs wrapped onto a second
+             line the list overflowed its own box and printed straight through
+             "13 shown / 66 units". Plain wrapping buttons have no fixed height,
+             so there is nothing left to overlap. */}
+      <div className="min-w-0">
+        <h2 className="font-heading text-lg leading-tight font-semibold">Inventory</h2>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {visible.length} shown, {totalUnits(visible)} units
+          {prefs.categoryScope !== 'all' && ` in ${prefs.categoryScope}`}
+        </p>
+      </div>
 
-        <Button variant="outline" size="sm" onClick={() => setCatOpen(true)}>
+      {/* ── Category filters ── */}
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        {scopes.map((scope) => {
+          const on = prefs.categoryScope === scope.value
+          return (
+            <button
+              key={scope.value}
+              type="button"
+              onClick={() => setPref({ categoryScope: scope.value })}
+              aria-pressed={on}
+              /* Roomy enough for a thumb below sm, tighter with a mouse above
+                 it. These were 26px tall, well under the 44px touch minimum. */
+              className={cn(
+                'flex min-h-11 min-w-0 max-w-full items-center truncate border px-3 text-xs transition-colors sm:min-h-8 sm:px-2.5',
+                on
+                  ? 'border-foreground bg-muted font-semibold text-foreground'
+                  : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+              )}
+            >
+              {scope.short ?? scope.label}
+            </button>
+          )
+        })}
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto shrink-0"
+          onClick={() => setCatOpen(true)}
+        >
           <FolderPlus className="size-3.5" />
           Categories
         </Button>
@@ -227,10 +255,6 @@ export function InventoryPage({
 
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">{visible.length} shown</Badge>
-        <Badge variant="outline" className="tabular-nums">
-          {totalUnits(visible)} units
-        </Badge>
 
         {/* Wraps rather than overflowing: sort + layout toggle + Add is ~350px
             of controls, which does not fit a 320px phone on one line. */}

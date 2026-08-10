@@ -13,7 +13,7 @@
     --card-foreground: oklch(0.148 0.004 228.8);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.148 0.004 228.8);
-    --primary: oklch(0.511 0.096 186.391);
+    --primary: oklch(0.42 0.115 259);
     --primary-foreground: oklch(0.984 0.014 180.72);
     --secondary: oklch(0.967 0.001 286.375);
     --secondary-foreground: oklch(0.21 0.006 285.885);
@@ -30,7 +30,10 @@
     --chart-3: oklch(0.45 0.017 213.2);
     --chart-4: oklch(0.378 0.015 216);
     --chart-5: oklch(0.275 0.011 216.9);
-    --radius: 0.625rem;
+    /* Flat by design. Corner rounding is a single token, so squaring it here
+     squares every card, button, input and dialog at once. Depth comes from
+     1px rules instead, the way a reference work does it. */
+    --radius: 0rem;
     --sidebar: oklch(0.987 0.002 197.1);
     --sidebar-foreground: oklch(0.148 0.004 228.8);
     --sidebar-primary: oklch(0.6 0.118 184.704);
@@ -48,7 +51,7 @@
     --card-foreground: oklch(0.987 0.002 197.1);
     --popover: oklch(0.218 0.008 223.9);
     --popover-foreground: oklch(0.987 0.002 197.1);
-    --primary: oklch(0.437 0.078 188.216);
+    --primary: oklch(0.72 0.115 259);
     --primary-foreground: oklch(0.984 0.014 180.72);
     --secondary: oklch(0.274 0.006 286.033);
     --secondary-foreground: oklch(0.985 0 0);
@@ -141,11 +144,11 @@
    near-black background glares, so these hold the same hue at low chroma.
    ────────────────────────────────────────────────────────────────────────── */
 :root {
-  --pastel-nav-surface: oklch(0.972 0.014 210);
-  --pastel-nav-text: oklch(0.44 0.036 220);
-  --pastel-nav-hover: oklch(0.945 0.028 195);
-  --pastel-nav-active: oklch(0.878 0.055 188);
-  --pastel-nav-active-text: oklch(0.31 0.052 205);
+  --pastel-nav-surface: oklch(0.978 0.002 240);
+  --pastel-nav-text: oklch(0.42 0.008 250);
+  --pastel-nav-hover: oklch(0.955 0.003 240);
+  --pastel-nav-active: oklch(1 0 0);
+  --pastel-nav-active-text: oklch(0.16 0.01 250);
   --pastel-dot: oklch(0.9 0.05 200);
   --pastel-dot-text: oklch(0.34 0.05 210);
   --pastel-room-wall: oklch(0.965 0.012 215);
@@ -156,9 +159,9 @@
 }
 
 .dark {
-  --pastel-nav-surface: oklch(0.246 0.016 220);
-  --pastel-nav-text: oklch(0.8 0.024 205);
-  --pastel-nav-hover: oklch(0.3 0.026 200);
+  --pastel-nav-surface: oklch(0.19 0.005 240);
+  --pastel-nav-text: oklch(0.74 0.008 250);
+  --pastel-nav-hover: oklch(0.24 0.006 240);
   --pastel-nav-active: oklch(0.42 0.055 190);
   --pastel-nav-active-text: oklch(0.96 0.02 190);
   --pastel-dot: oklch(0.45 0.06 200);
@@ -185,4 +188,12 @@
   .chore-alert-pulse {
     animation: none;
   }
+}
+
+/* ── flat surfaces ─────────────────────────────────────────────────────────
+   roomkit-flat: the radius token squares most things, but shadcn ships a few
+   fixed shadow utilities that still read as floating cards. Depth in this
+   design is carried entirely by hairline borders. */
+.shadow-xs, .shadow-sm, .shadow, .shadow-md, .shadow-lg {
+  box-shadow: none !important;
 }

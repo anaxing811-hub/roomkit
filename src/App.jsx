@@ -1,28 +1,31 @@
 /**
  * App shell.
  *
- * Tabs live in the header banner as pure pastel text — no icons, no emoji. The
- * only ornament is a red pulse on Maintenance when something is overdue, which
- * replaces every global alert banner: nothing interrupts you on other pages.
+ * Navigation is a left rail on desktop and the same rail as a drawer on a
+ * phone. It replaced a horizontal tab strip that could not fit five labels on a
+ * small screen without overlapping them, and it gives each section somewhere to
+ * put its own actions.
  *
- * Only the active tab is mounted, which is also what enforces the workbench
- * reset policy — leaving the mixer unmounts it and its cleanup wipes the stage.
+ * Actions that used to sit in permanent bars above the content now live in the
+ * rail and appear only for the section you are in. That returned about 180px at
+ * the top of every screen, which on a phone is two and a half item cards.
+ *
+ * Only the active section is mounted, which is also what enforces the workbench
+ * reset policy: leaving the mixer unmounts it and its cleanup wipes the stage.
  */
-import { Suspense, lazy, useMemo, useState } from 'react'
-import { Loader2, Settings, Smartphone } from 'lucide-react'
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
+import { Loader2, Menu } from 'lucide-react'
+import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AppSidebar } from '@/components/AppSidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { APP_TABS, HOME_TAB } from '@/lib/constants'
 import { choreStatus } from '@/lib/date'
-import { cn } from '@/lib/utils'
 import { StaleOverlay } from '@/features/alerts/StaleOverlay'
 import { SettingsDialog } from '@/features/ai/SettingsDialog'
-import { DataTransferBar } from '@/features/data/DataTransferBar'
-import { CloudSyncBar } from '@/features/cloud/CloudSyncBar'
+import { GlanceDialog } from '@/features/alerts/GlanceDialog'
+import { ImportDialog } from '@/features/data/ImportDialog'
+import { SignInDialog } from '@/features/cloud/SignInDialog'
 import { ChoresPage } from '@/features/chores/ChoresPage'
 import { InventoryPage } from '@/features/inventory/InventoryPage'
 import { LaundryPanel } from '@/features/laundry/LaundryPanel'
@@ -30,14 +33,9 @@ import { MobileLinkSheet } from '@/features/mobile/MobileLinkSheet'
 import { RoomMapPage } from '@/features/room/RoomMapPage'
 import { GlobalSearch } from '@/features/search/GlobalSearch'
 import { useApp } from '@/store/AppStateContext'
-import {
-  countsByCategory,
-  declutterCandidates,
-  searchItems,
-  totalUnits,
-} from '@/store/selectors'
+import { searchItems } from '@/store/selectors'
 
-/** Swiper + the workbench are only needed on one tab — keep them off first paint. */
+/** Swiper + the workbench are only needed on one section, keep them off first paint. */
 const OutfitMixer = lazy(() =>
   import('@/features/outfit/OutfitMixer').then((m) => ({ default: m.OutfitMixer }))
 )
@@ -51,46 +49,24 @@ function MixerFallback() {
   )
 }
 
-/**
- * Metric tile. When given an `onClick` it becomes a real navigational control
- * rather than a passive readout.
- */
-function StatTile({ label, value, hint, onClick, tone }) {
-  const Comp = onClick ? 'button' : 'div'
-  return (
-    <Comp
-      type={onClick ? 'button' : undefined}
-      onClick={onClick}
-      className={cn(
-        'min-w-0 rounded-lg border border-border bg-card p-3 text-left transition-colors',
-        onClick && 'cursor-pointer hover:border-primary/50 hover:bg-muted/50',
-        tone === 'warn' && 'border-amber-500/40 bg-amber-500/5'
-      )}
-    >
-      <p className="text-2xl leading-tight font-semibold tabular-nums">{value}</p>
-      <p className="truncate text-xs font-medium">{label}</p>
-      {hint && <p className="truncate text-[11px] text-muted-foreground">{hint}</p>}
-    </Comp>
-  )
-}
-
 export default function App() {
-  const { state, dispatch, storageError } = useApp()
+  const { state, dispatch, storageError, cloud, exportDatabase } = useApp()
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState(HOME_TAB)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [staleOpen, setStaleOpen] = useState(false)
+  const [glanceOpen, setGlanceOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [signInOpen, setSignInOpen] = useState(false)
   const [locationFilter, setLocationFilter] = useState(null)
 
   const searching = query.trim().length > 0
   const results = useMemo(() => searchItems(state.items, query), [state.items, query])
-
-  const counts = useMemo(() => countsByCategory(state.items), [state.items])
   const dirty = state.laundry.entries?.length ?? 0
-  const stale = declutterCandidates(state.items).length
 
-  /** Drives the ambient red cue on the Maintenance tab. */
   const choresOverdue = useMemo(
     () =>
       state.chores.filter((c) => {
@@ -100,6 +76,11 @@ export default function App() {
     [state.chores]
   )
 
+  const goTab = useCallback((next) => {
+    setTab(next)
+    setDrawerOpen(false)
+  }, [])
+
   function search(next) {
     setQuery(next)
     if (next.trim()) {
@@ -108,215 +89,170 @@ export default function App() {
     }
   }
 
-  /** Logo hook: drop every active filter and return to the home tab. */
-  function goHome() {
-    setQuery('')
-    setLocationFilter(null)
-    dispatch({ type: 'prefs/patch', patch: { categoryScope: 'all', sortMode: 'newest' } })
-    setTab(HOME_TAB)
-  }
-
   /** Shared by the room map, chore cards and location badges. */
   function focusLocation(location) {
     setQuery('')
     setLocationFilter(location)
     dispatch({ type: 'prefs/patch', patch: { categoryScope: 'all' } })
-    setTab('inventory')
+    goTab('inventory')
   }
+
+  /** Every action the rail can fire, in one place. */
+  const handleAction = useCallback(
+    async (section, action) => {
+      setDrawerOpen(false)
+      if (action === 'glance') return setGlanceOpen(true)
+      if (action === 'import') return setImportOpen(true)
+      if (action === 'settings') return setSettingsOpen(true)
+      if (action === 'mobile') return setMobileOpen(true)
+      if (action === 'signin') return setSignInOpen(true)
+
+      if (action === 'export') {
+        const payload = exportDatabase()
+        toast.success('Backup downloaded', {
+          description: `${payload.counts.items} items, ${payload.counts.chores} chores`,
+        })
+        return
+      }
+      if (action === 'sync') {
+        await cloud.syncNow()
+        toast.success('Synced')
+        return
+      }
+      if (action === 'signout') {
+        await cloud.signOut()
+        toast.success('Signed out', { description: 'Your data is still on this device.' })
+      }
+    },
+    [cloud, exportDatabase]
+  )
+
+  const sectionTitle = APP_TABS.find((t) => t.value === tab)?.label ?? 'RoomKit'
 
   return (
     /* Safe-area padding matters once installed to the iPhone home screen: in
        standalone mode the app owns the full screen, so the notch and home
        indicator would otherwise sit on top of the UI. */
-    <div className="min-h-dvh bg-background pb-[env(safe-area-inset-bottom)]">
-      <Tabs value={tab} onValueChange={setTab}>
-        {/* ══ Header banner ══ */}
-        <header
-          className="sticky top-0 z-40 border-b border-border pt-[env(safe-area-inset-top)] backdrop-blur"
-          style={{ backgroundColor: 'color-mix(in oklab, var(--pastel-nav-surface) 92%, transparent)' }}
+    <div className="min-h-dvh bg-background">
+      <div className="flex min-h-dvh min-w-0">
+        {/* ══ Desktop rail ══ */}
+        <aside
+          className="sticky top-0 hidden h-dvh w-56 shrink-0 border-r border-border lg:block"
+          style={{ backgroundColor: 'var(--pastel-nav-surface)' }}
         >
-          <div className="mx-auto flex min-w-0 max-w-6xl flex-wrap items-center gap-2 px-4 py-2">
+          <AppSidebar
+            tab={tab}
+            onTab={goTab}
+            onAction={handleAction}
+            choresOverdue={choresOverdue}
+            dirty={dirty}
+          />
+        </aside>
+
+        {/* ══ Mobile drawer ══ */}
+        {drawerOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
             <button
               type="button"
-              onClick={goHome}
-              title="Reset filters and go home"
-              className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              aria-label="Close menu"
+              onClick={() => setDrawerOpen(false)}
+              className="absolute inset-0 bg-black/40"
+            />
+            <div
+              className="absolute inset-y-0 left-0 flex w-[min(17rem,85vw)] flex-col border-r border-border pt-[env(safe-area-inset-top)]"
+              style={{ backgroundColor: 'var(--pastel-nav-surface)' }}
             >
-              <img src="/icons/favicon.svg" alt="" className="size-6 shrink-0 rounded" />
-              <span className="truncate font-heading text-base font-semibold">RoomKit</span>
+              <AppSidebar
+                tab={tab}
+                onTab={goTab}
+                onAction={handleAction}
+                onClose={() => setDrawerOpen(false)}
+                choresOverdue={choresOverdue}
+                dirty={dirty}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ══ Content ══ */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Phone header. The only thing above content on a small screen. */}
+          <header className="sticky top-0 z-40 flex min-w-0 items-center gap-2 border-b border-border bg-background/95 px-3 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur lg:hidden">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+              className="shrink-0 border border-border p-1.5"
+            >
+              <Menu className="size-4" />
             </button>
-
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              <Button variant="outline" size="sm" onClick={() => setMobileOpen(true)}>
-                <Smartphone className="size-3.5 shrink-0" />
-                <span className="hidden sm:inline">📱 Mobile Link</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setSettingsOpen(true)}
-                title="Settings"
+            <span className="min-w-0 flex-1 truncate font-heading text-sm font-semibold">
+              {sectionTitle}
+            </span>
+            {choresOverdue > 0 && tab !== 'chores' && (
+              <button
+                type="button"
+                onClick={() => goTab('chores')}
+                className="chore-alert-pulse shrink-0 border border-destructive px-1.5 text-[11px] font-bold tabular-nums text-destructive"
+                aria-label={`${choresOverdue} chores need attention`}
               >
-                <Settings className="size-4" />
-              </Button>
+                {choresOverdue}
+              </button>
+            )}
+          </header>
+
+          <main className="mx-auto min-w-0 w-full max-w-5xl flex-1 space-y-4 px-3 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-5">
+            {storageError && (
+              <div className="border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
+                {storageError}
+              </div>
+            )}
+
+            <GlobalSearch
+              value={query}
+              onChange={search}
+              resultCount={results.length}
+              totalCount={state.items.length}
+            />
+
+            <div className="min-w-0">
+              {tab === 'inventory' && (
+                <InventoryPage
+                  items={results}
+                  searching={searching}
+                  onClearSearch={() => setQuery('')}
+                  locationFilter={locationFilter}
+                  onLocationFilter={setLocationFilter}
+                  onTagSearch={(t) => search(t)}
+                />
+              )}
+              {tab === 'outfit' && (
+                <Suspense fallback={<MixerFallback />}>
+                  <OutfitMixer />
+                </Suspense>
+              )}
+              {tab === 'room' && <RoomMapPage onOpenLocation={focusLocation} />}
+              {tab === 'laundry' && <LaundryPanel />}
+              {tab === 'chores' && <ChoresPage onFilterLocation={focusLocation} />}
             </div>
-          </div>
-
-          {/* ── Pastel text tabs. Grid on narrow screens so five labels wrap
-                 cleanly instead of squeezing into illegibility. ── */}
-          <div className="mx-auto max-w-6xl px-4 pb-2">
-            {/* `height: auto` is inline because the component's own
-                `group-data-horizontal/tabs:h-8` pins the list to 32px — with
-                five tabs wrapping onto three rows that crushes them into each
-                other. Inline wins the cascade without an !important arms race. */}
-            <TabsList
-              style={{ height: 'auto' }}
-              className="grid w-full grid-cols-2 gap-1 bg-transparent p-0 sm:grid-cols-3 md:flex md:flex-wrap"
-            >
-              {APP_TABS.map((t) => {
-                const isChores = t.value === 'chores'
-                const alerting = isChores && choresOverdue > 0
-                const isActive = tab === t.value
-                return (
-                  <TabsTrigger
-                    key={t.value}
-                    value={t.value}
-                    /* Colours are inline rather than utilities on purpose:
-                       shadcn's own `dark:data-active:bg-input/30` carries two
-                       variants, so it sorts after any single-variant utility
-                       and wins the cascade. An inline style ends the argument
-                       instead of escalating it with `!important`. */
-                    style={{
-                      backgroundColor: isActive
-                        ? 'var(--pastel-nav-active)'
-                        : 'transparent',
-                      color: isActive
-                        ? 'var(--pastel-nav-active-text)'
-                        : 'var(--pastel-nav-text)',
-                      // The base trigger is h-[calc(100%-1px)] of a now-auto
-                      // list, which collapses to a ~14px line box. 40px is the
-                      // floor for a comfortable thumb target.
-                      height: 'auto',
-                      minHeight: '2.5rem',
-                    }}
-                    className={cn(
-                      'relative min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1.5 text-xs font-medium transition-colors',
-                      'data-active:shadow-none dark:data-active:border-transparent',
-                      !isActive && 'hover:brightness-95 dark:hover:brightness-125',
-                      alerting && 'border-destructive/50'
-                    )}
-                  >
-                    <span className="hidden truncate lg:inline">{t.label}</span>
-                    <span className="truncate lg:hidden">{t.short}</span>
-
-                    {/* Ambient overdue cue — the only alert outside the tab. */}
-                    {alerting && (
-                      <span
-                        aria-label={`${choresOverdue} chores need attention`}
-                        className="chore-alert-pulse ml-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground"
-                      >
-                        {choresOverdue}
-                      </span>
-                    )}
-                    {t.value === 'laundry' && dirty > 0 && (
-                      <Badge variant="destructive" className="ml-1 shrink-0">
-                        {dirty}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                )
-              })}
-            </TabsList>
-          </div>
-        </header>
-
-        <main className="mx-auto min-w-0 max-w-6xl space-y-4 px-4 py-4">
-          {storageError && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
-              {storageError}
-            </div>
-          )}
-
-          {/* Manual database transfer, top of the dashboard on every screen. */}
-          <CloudSyncBar />
-          <DataTransferBar />
-
-          <GlobalSearch
-            value={query}
-            onChange={search}
-            resultCount={results.length}
-            totalCount={state.items.length}
-          />
-
-          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
-            <div className="order-2 min-w-0 lg:order-1">
-              {/* One panel bound to the active tab. Rendering all of them and
-                  letting the library swap leaves the outgoing panel mounted
-                  waiting on an exit transition that never fires. */}
-              <TabsContent value={tab} className="min-w-0">
-                {tab === 'inventory' && (
-                  <InventoryPage
-                    items={results}
-                    searching={searching}
-                    onClearSearch={() => setQuery('')}
-                    locationFilter={locationFilter}
-                    onLocationFilter={setLocationFilter}
-                    onTagSearch={(tag) => search(tag)}
-                  />
-                )}
-                {tab === 'outfit' && (
-                  <Suspense fallback={<MixerFallback />}>
-                    <OutfitMixer />
-                  </Suspense>
-                )}
-                {tab === 'room' && <RoomMapPage onOpenLocation={focusLocation} />}
-                {tab === 'laundry' && <LaundryPanel />}
-                {tab === 'chores' && <ChoresPage onFilterLocation={focusLocation} />}
-              </TabsContent>
-            </div>
-
-            <aside className="order-1 min-w-0 space-y-4 lg:order-2">
-              <Card className="gap-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">At a glance</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-2">
-                  <StatTile
-                    label="Total Items"
-                    value={state.items.length}
-                    hint={`${totalUnits(state.items)} units · open list`}
-                    onClick={() => {
-                      setLocationFilter(null)
-                      dispatch({ type: 'prefs/patch', patch: { viewMode: 'list' } })
-                      setTab('inventory')
-                    }}
-                  />
-                  <StatTile
-                    label="Stale Items"
-                    value={stale}
-                    hint="6+ months · review"
-                    tone={stale > 0 ? 'warn' : undefined}
-                    onClick={() => setStaleOpen(true)}
-                  />
-                  <StatTile label="Clothes" value={counts.Clothes ?? 0} />
-                  <StatTile label="Books" value={counts.Books ?? 0} />
-                  <StatTile label="Electronics" value={counts.Electronics ?? 0} />
-                  <StatTile
-                    label="In laundry"
-                    value={dirty}
-                    hint="dirty units"
-                    onClick={() => setTab('laundry')}
-                  />
-                </CardContent>
-              </Card>
-            </aside>
-          </div>
-        </main>
-      </Tabs>
+          </main>
+        </div>
+      </div>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <MobileLinkSheet open={mobileOpen} onOpenChange={setMobileOpen} />
       <StaleOverlay open={staleOpen} onOpenChange={setStaleOpen} />
+      <GlanceDialog
+        open={glanceOpen}
+        onOpenChange={setGlanceOpen}
+        onOpenStale={() => {
+          setGlanceOpen(false)
+          setStaleOpen(true)
+        }}
+        onGoTab={goTab}
+      />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
       <Toaster position="bottom-center" richColors />
     </div>
   )
