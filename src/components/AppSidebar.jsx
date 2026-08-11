@@ -78,7 +78,7 @@ function ActionButton({ children, onClick }) {
 }
 
 export function AppSidebar({ tab, onTab, onAction, onClose, choresOverdue = 0, dirty = 0 }) {
-  const { state, cloud } = useApp()
+  const { state, cloud, archive } = useApp()
   const [rolesOpen, setRolesOpen] = useState(false)
 
   const counts = {
@@ -199,9 +199,32 @@ export function AppSidebar({ tab, onTab, onAction, onClose, choresOverdue = 0, d
                   </div>
                 )}
 
+                {/* An archiving device that cannot reach the local server is
+                    doing nothing at all. Saying so is the difference between a
+                    backup and the belief that you have one. */}
+                {cloud.isArchiver && (
+                  <p className="ml-3 border-l border-border px-3 py-1.5 text-[11px] leading-snug text-muted-foreground">
+                    {archive?.serverAvailable === false ? (
+                      <>
+                        Not saving to disk. Archiving needs RoomKit running on
+                        this computer with <code className="text-[10px]">npm run dev</code>.
+                      </>
+                    ) : archive?.lastArchivedAt ? (
+                      <>Saved to disk {new Date(archive.lastArchivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</>
+                    ) : (
+                      <>Waiting for the first change to save</>
+                    )}
+                  </p>
+                )}
+
                 <ActionButton onClick={() => onAction('device', 'sync')}>
                   {cloud.status === 'syncing' ? 'Syncing…' : 'Sync now'}
                 </ActionButton>
+                {cloud.isArchiver && (
+                  <ActionButton onClick={() => onAction('device', 'archive')}>
+                    Save a copy now
+                  </ActionButton>
+                )}
                 <ActionButton onClick={() => onAction('device', 'signout')}>Sign out</ActionButton>
               </>
             ) : (

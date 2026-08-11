@@ -50,7 +50,7 @@ function MixerFallback() {
 }
 
 export default function App() {
-  const { state, dispatch, storageError, cloud, exportDatabase } = useApp()
+  const { state, dispatch, storageError, cloud, exportDatabase, archive } = useApp()
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState(HOME_TAB)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -114,6 +114,15 @@ export default function App() {
         })
         return
       }
+      if (action === 'archive') {
+        const result = await archive.archive({ force: true })
+        if (result) toast.success('Saved to this computer', { description: result.file })
+        else
+          toast.error('Could not save to disk', {
+            description: 'RoomKit needs to be running on this computer with npm run dev.',
+          })
+        return
+      }
       if (action === 'sync') {
         await cloud.syncNow()
         toast.success('Synced')
@@ -124,7 +133,7 @@ export default function App() {
         toast.success('Signed out', { description: 'Your data is still on this device.' })
       }
     },
-    [cloud, exportDatabase]
+    [cloud, exportDatabase, archive]
   )
 
   const sectionTitle = APP_TABS.find((t) => t.value === tab)?.label ?? 'RoomKit'
