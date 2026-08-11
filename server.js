@@ -14,6 +14,7 @@
  * the app itself — no background writes, no version negotiation, and none of
  * the merge-conflict failure modes that come with them.
  */
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
@@ -114,7 +115,7 @@ const ARCHIVE_RETAIN = 60
 
 fs.mkdirSync(ARCHIVE_DIR, { recursive: true })
 
-app.post('/api/archive', express.json({ limit: '24mb' }), async (req, res) => {
+app.post('/api/archive', express.json({ limit: '64mb' }), async (req, res) => {
   const payload = req.body
   if (!payload || typeof payload !== 'object' || !Array.isArray(payload.items)) {
     return res
@@ -127,24 +128,99 @@ app.post('/api/archive', express.json({ limit: '24mb' }), async (req, res) => {
   const stamp =
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
     `-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
-  const name = `roomkit-${stamp}.json`
 
   try {
-    // Write to a temp name then rename, so a snapshot is never left half
-    // written if the process dies mid-save.
-    const finalPath = path.join(ARCHIVE_DIR, name)
+    /**
+     * Photos come down with the snapshot and are written as real files.
+     *
+     * The point of archiving is that your things end up on your own machine.
+     * A JSON file full of `supabase:` references is not that: it is a list of
+     * pointers into someone else's storage that stops meaning anything the day
+     * the account lapses. Photos are written into a shared photos/ folder,
+     * addressed by content, so twenty snapshots of the same wardrobe do not
+     * store the same jacket twenty times. The archived JSON is rewritten to
+     * point at those local files.
+     */
+    const photos = Array.isArray(payload.photos) ? payload.photos : []
+    const photoDir = path.join(ARCHIVE_DIR, 'photos')
+    if (photos.length) await fsp.mkdir(photoDir, { recursive: true })
+
+    const written = new Map()
+    for (const photo of photos) {
+      if (!photo?.itemId || typeof photo.dataUrl !== 'string') continue
+      const match = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(photo.dataUrl)
+      if (!match) continue
+      const [, mime, b64] = match
+      const buf = Buffer.from(b64, 'base64')
+      const ext = mime.split('/')[1].replace('jpeg', 'jpg').replace('svg+xml', 'svg')
+      const hash = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 12)
+      const name = `${hash}.${ext}`
+      const dest = path.join(photoDir, name)
+      if (!fs.existsSync(dest)) await fsp.writeFile(dest, buf)
+      written.set(photo.itemId, `photos/${name}`)
+    }
+
+    const items = payload.items.map((it) =>
+      written.has(it.id) ? { ...it, image: written.get(it.id) } : it
+    )
+    const snapshot = { ...payload, items }
+    delete snapshot.photos
+
+    const jsonName = `roomkit-${stamp}.json`
+    const finalPath = path.join(ARCHIVE_DIR, jsonName)
     const tmpPath = `${finalPath}.tmp`
-    await fsp.writeFile(tmpPath, JSON.stringify(payload, null, 2), 'utf8')
+    await fsp.writeFile(tmpPath, JSON.stringify(snapshot, null, 2), 'utf8')
     await fsp.rename(tmpPath, finalPath)
 
-    const all = (await fsp.readdir(ARCHIVE_DIR))
-      .filter((f) => /^roomkit-.*\.json$/.test(f))
-      .sort()
-    const stale = all.slice(0, Math.max(0, all.length - ARCHIVE_RETAIN))
-    await Promise.all(stale.map((f) => fsp.unlink(path.join(ARCHIVE_DIR, f)).catch(() => {})))
+    /**
+     * A spreadsheet alongside the JSON, because "stored on my laptop" is not
+     * much use if the only readable form needs a program to open it. This one
+     * opens in Excel and is sorted by location then name, so it reads like a
+     * list of what is in the room rather than a database dump.
+     */
+    const esc = (v) => {
+      const s = String(v ?? '')
+      return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+    const rows = [...items].sort(
+      (a, b) =>
+        String(a.location ?? '').localeCompare(String(b.location ?? '')) ||
+        String(a.name ?? '').localeCompare(String(b.name ?? ''))
+    )
+    const csv = [
+      ['Location', 'Name', 'Category', 'Quantity', 'Status', 'Layer', 'Tags', 'Photo', 'Last touched'].join(','),
+      ...rows.map((i) =>
+        [
+          i.location, i.name, i.category, i.quantity ?? 1, i.status,
+          i.layer ?? '', (i.tags ?? []).join(' '), i.image ?? '',
+          i.lastTouchedAt ? String(i.lastTouchedAt).slice(0, 10) : '',
+        ].map(esc).join(',')
+      ),
+    ].join('\r\n') // CRLF, so the file opens cleanly in Excel on Windows
+    await fsp.writeFile(path.join(ARCHIVE_DIR, `roomkit-${stamp}.csv`), csv, 'utf8')
 
-    console.log(`  archived  ->  backups/${name}  (${payload.items.length} items)`)
-    res.json({ ok: true, file: `backups/${name}`, kept: all.length - stale.length })
+    // Prune old snapshots, keeping their shared photos: another snapshot may
+    // still reference the same file.
+    const all = (await fsp.readdir(ARCHIVE_DIR))
+      .filter((f) => /^roomkit-.*\.(json|csv)$/.test(f))
+      .sort()
+    const jsons = all.filter((f) => f.endsWith('.json'))
+    const stale = jsons.slice(0, Math.max(0, jsons.length - ARCHIVE_RETAIN))
+    for (const f of stale) {
+      await fsp.unlink(path.join(ARCHIVE_DIR, f)).catch(() => {})
+      await fsp.unlink(path.join(ARCHIVE_DIR, f.replace(/\.json$/, '.csv'))).catch(() => {})
+    }
+
+    console.log(
+      `  archived  ->  backups/${jsonName}  (${items.length} items, ${written.size} photos)`
+    )
+    res.json({
+      ok: true,
+      file: `backups/${jsonName}`,
+      csv: `backups/roomkit-${stamp}.csv`,
+      photos: written.size,
+      items: items.length,
+    })
   } catch (err) {
     res.status(500).json({ error: 'write_failed', message: err.message })
   }

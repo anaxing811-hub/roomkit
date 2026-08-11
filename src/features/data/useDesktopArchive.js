@@ -18,6 +18,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { resolvePhotoUrl } from '@/lib/supabase'
+
 const LAST_FINGERPRINT_KEY = 'roomkit:v2:lastArchivedFingerprint'
 const LAST_AT_KEY = 'roomkit:v2:lastArchivedAt'
 const INTERVAL_MS = 2 * 60 * 1000
@@ -71,10 +73,47 @@ export function useDesktopArchive({ enabled, buildBackup, syncStatus }) {
 
       busy.current = true
       try {
+        /**
+         * Bring the photos down with the snapshot.
+         *
+         * Items store a `supabase:` reference rather than a URL, so a snapshot
+         * of the raw state would be a list of pointers into cloud storage: fine
+         * while the account lives, worthless the day it does not. Resolving
+         * each one and shipping the bytes is what makes the archive an actual
+         * copy of your things rather than a description of where they are.
+         *
+         * Failures are skipped rather than fatal. One unreadable photo should
+         * not cost you the whole snapshot.
+         */
+        const photos = []
+        for (const item of payload.items ?? []) {
+          const ref = item.image
+          if (typeof ref !== 'string') continue
+          try {
+            if (ref.startsWith('data:')) {
+              photos.push({ itemId: item.id, dataUrl: ref })
+            } else if (ref.startsWith('supabase:') || ref.startsWith('/uploads/')) {
+              const url = ref.startsWith('supabase:') ? await resolvePhotoUrl(ref) : ref
+              if (!url) continue
+              const blob = await (await fetch(url)).blob()
+              if (!blob.type.startsWith('image/')) continue
+              const dataUrl = await new Promise((resolve, reject) => {
+                const r = new FileReader()
+                r.onload = () => resolve(r.result)
+                r.onerror = reject
+                r.readAsDataURL(blob)
+              })
+              photos.push({ itemId: item.id, dataUrl })
+            }
+          } catch {
+            /* skip this photo, keep the snapshot */
+          }
+        }
+
         const res = await fetch('/api/archive', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, photos }),
         })
         if (!res.ok) throw new Error(`Archive failed (${res.status})`)
         const data = await res.json()
