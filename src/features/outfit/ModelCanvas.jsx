@@ -21,6 +21,7 @@ import { AlertCircle } from 'lucide-react'
 import { APPAREL_LAYERS, MANNEQUIN_SRC, anchorBox } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { paintOrder } from '@/store/selectors'
+import { Photo } from '@/components/Photo'
 
 /** Fallback tile for an owned item with no photo — keeps the slot visible. */
 function TextLayer({ piece, zIndex, box, className }) {
@@ -70,7 +71,7 @@ export function ModelCanvas({ outfit, customTracks = [], className }) {
           }
 
           return (
-            <img
+            <Photo
               key={layer.key}
               src={piece.src}
               alt={piece.title}

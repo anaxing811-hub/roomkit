@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { CANVAS_NODE } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { Photo } from '@/components/Photo'
 
 export function CanvasWorkbench({
   nodes,
@@ -156,7 +157,7 @@ export function CanvasWorkbench({
               )}
             >
               {node.src ? (
-                <img
+                <Photo
                   src={node.src}
                   alt={node.title}
                   draggable={false}

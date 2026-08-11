@@ -27,7 +27,7 @@ async function resolve(ref) {
   return url
 }
 
-export function Photo({ src, alt = '', className, ...rest }) {
+export function Photo({ src, alt = '', className, style, fallback = null, ...rest }) {
   const isCloud = typeof src === 'string' && src.startsWith(CLOUD_PREFIX)
   const [resolved, setResolved] = useState(isCloud ? null : src)
 
@@ -53,9 +53,20 @@ export function Photo({ src, alt = '', className, ...rest }) {
     }
   }, [src, isCloud])
 
-  // A pending or failed signature renders as a neutral block rather than a
-  // broken-image glyph.
-  if (!resolved) return <div className={className} aria-hidden />
+  /**
+   * Pending or failed. A signed URL can fail for ordinary reasons: the session
+   * lapsed, or the photo was uploaded by a device you have since signed out of.
+   * Callers pass a `fallback` so that reads as "no picture yet" rather than a
+   * blank hole where a garment should be. Geometry is preserved either way, or
+   * a silhouette layer would jump into place once the URL arrives.
+   */
+  if (!resolved) {
+    return (
+      <div className={className} style={style} aria-hidden>
+        {fallback}
+      </div>
+    )
+  }
 
-  return <img src={resolved} alt={alt} className={className} loading="lazy" {...rest} />
+  return <img src={resolved} alt={alt} className={className} style={style} loading="lazy" {...rest} />
 }

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { Photo } from '@/components/Photo'
 
 import 'swiper/css'
 import 'swiper/css/free-mode'
@@ -35,14 +36,14 @@ function PieceCard({ piece, active, onCanvas, shadowed, onClick }) {
     >
       <div className="flex flex-1 items-center justify-center overflow-hidden bg-muted/40 p-1">
         {piece.src ? (
-          <img
+          <Photo
             src={piece.src}
+            fallback={<Shirt className="size-7 text-muted-foreground/60" />}
             alt={piece.title}
             /* Bundled art is a full 400x800 body; scale it up and let the card
                clip, or a shoe renders two pixels tall in the corner. Owned
                photos are already cropped, so they're shown as-is. */
-            className="h-full w-full object-contain transition-transform group-hover:scale-105"
-            loading="lazy"
+            className="flex h-full w-full items-center justify-center object-contain transition-transform group-hover:scale-105"
             draggable={false}
           />
         ) : (
