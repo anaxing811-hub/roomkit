@@ -79,6 +79,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Feet',
     hint: 'Shoes, sneakers, boots, heels',
     anchorY: -0.86,
+    boxH: 14,
+    boxW: 46,
     planeH: 0.22,
   },
   {
@@ -89,6 +91,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Waist to ankle',
     hint: 'Pants, skirts, shorts, cargos',
     anchorY: -0.42,
+    boxH: 36,
+    boxW: 52,
     planeH: 0.78,
   },
   {
@@ -99,6 +103,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Waistline',
     hint: 'Belts, kilts, wallet chains',
     anchorY: -0.02,
+    boxH: 10,
+    boxW: 46,
     planeH: 0.18,
   },
   {
@@ -109,6 +115,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Torso',
     hint: 'Shirts, tees, sweaters, tanks',
     anchorY: 0.3,
+    boxH: 30,
+    boxW: 56,
     planeH: 0.62,
   },
   {
@@ -119,6 +127,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Neck',
     hint: 'Necklaces, chains, neck ties',
     anchorY: 0.58,
+    boxH: 9,
+    boxW: 26,
     planeH: 0.2,
   },
   {
@@ -129,6 +139,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Over the torso and arms',
     hint: 'Jackets, coats, blazers, open hoodies',
     anchorY: 0.26,
+    boxH: 38,
+    boxW: 66,
     planeH: 0.76,
   },
   {
@@ -139,6 +151,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Lower face and neck',
     hint: 'Masks, scarves, bandanas',
     anchorY: 0.74,
+    boxH: 10,
+    boxW: 30,
     planeH: 0.2,
   },
   {
@@ -149,6 +163,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Top of head',
     hint: 'Hats, beanies, caps, headbands',
     anchorY: 0.98,
+    boxH: 15,
+    boxW: 40,
     planeH: 0.24,
   },
   {
@@ -159,6 +175,8 @@ export const APPAREL_LAYERS = [
     anchor: 'Eye line',
     hint: 'Sunglasses, reading glasses',
     anchorY: 0.86,
+    boxH: 7,
+    boxW: 32,
     planeH: 0.12,
   },
   {
@@ -169,11 +187,39 @@ export const APPAREL_LAYERS = [
     anchor: 'Over the whole body',
     hint: 'Crossbody bags, backpacks, totes',
     anchorY: 0.05,
+    boxH: 22,
+    boxW: 34,
     planeH: 0.5,
   },
 ]
 
 /** The 10 wearable layers, mannequin excluded -- what the mixer actually cycles. */
+/**
+ * Where a photo of a real garment should sit on the silhouette.
+ *
+ * The drawn art this replaced was authored in one 400x800 body space, so every
+ * piece already knew where it belonged and could just be stretched edge to
+ * edge. A photograph of your own shirt carries no such information: it is a
+ * cropped rectangle, and rendering it full-bleed puts a shoe across the torso.
+ *
+ * anchorY (-1 bottom .. 1 top) gives the vertical centre; boxH and boxW say how
+ * much of the stage the piece may occupy. Returned as percentages ready for
+ * absolute positioning.
+ */
+export function anchorBox(layer) {
+  if (!layer || layer.anchorY == null) return null
+  const height = layer.boxH ?? 24
+  const width = layer.boxW ?? 50
+  const centreTop = ((1 - layer.anchorY) / 2) * 100
+  return {
+    top: Math.max(0, Math.min(100 - height, centreTop - height / 2)),
+    height,
+    width,
+    // Bags hang off one side rather than sitting on the body's midline.
+    left: layer.key === 'bag' ? 62 : (100 - width) / 2,
+  }
+}
+
 export const OUTFIT_LAYERS = APPAREL_LAYERS.filter((l) => !l.system)
 
 export const OUTFIT_LAYER_KEYS = OUTFIT_LAYERS.map((l) => l.key)

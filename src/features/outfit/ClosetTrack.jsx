@@ -41,10 +41,7 @@ function PieceCard({ piece, active, onCanvas, shadowed, onClick }) {
             /* Bundled art is a full 400x800 body; scale it up and let the card
                clip, or a shoe renders two pixels tall in the corner. Owned
                photos are already cropped, so they're shown as-is. */
-            className={cn(
-              'h-full w-full object-contain transition-transform group-hover:scale-105',
-              piece.owned ? '' : 'scale-[2.1]'
-            )}
+            className="h-full w-full object-contain transition-transform group-hover:scale-105"
             loading="lazy"
             draggable={false}
           />
@@ -55,11 +52,6 @@ function PieceCard({ piece, active, onCanvas, shadowed, onClick }) {
       <span className="truncate border-t border-border/60 px-1.5 py-1 text-[10px] leading-tight font-medium">
         {piece.title}
       </span>
-      {piece.owned && !onCanvas && (
-        <span className="absolute top-1 right-1 rounded-full bg-primary px-1.5 py-px text-[8px] font-semibold text-primary-foreground">
-          MINE
-        </span>
-      )}
       {onCanvas && (
         <span className="absolute inset-x-1 top-1 flex items-center justify-center gap-0.5 rounded-full bg-foreground/85 px-1 py-px text-[8px] font-semibold text-background">
           <Check className="size-2" />

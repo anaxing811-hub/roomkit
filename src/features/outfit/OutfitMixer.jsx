@@ -45,7 +45,6 @@ import { Switch } from '@/components/ui/switch'
 import { CANVAS_NODE, CLOSET_SIZE, WEAR_LIMIT } from '@/lib/constants'
 import { formatDate } from '@/lib/date'
 import { makeId } from '@/lib/id'
-import { APPAREL_MOCKS } from '@/data/apparel'
 import { useApp } from '@/store/AppStateContext'
 import { allLayers, layerByKey, projectCanvasToModel, wearableByLayer } from '@/store/selectors'
 
@@ -80,15 +79,21 @@ export function OutfitMixer() {
   useEffect(() => () => dispatch({ type: 'stage/reset' }), [dispatch])
 
   /** Mock catalogue + the user's own wearable clothing, per layer. */
-  const closet = useMemo(() => {
-    const owned = wearableByLayer(items)
-    return Object.fromEntries(
-      layers.map((layer) => [
-        layer.key,
-        [...(owned[layer.key] ?? []), ...(APPAREL_MOCKS[layer.key] ?? [])],
-      ])
-    )
-  }, [items, layers])
+  /**
+   * The closet is exactly what you own and nothing else.
+   *
+   * It used to append 43 bundled cartoon garments to every track, which buried
+   * your own clothes underneath sample data you could not remove. An item
+   * appears here when it is categorised as Clothes, is not dirty or in the
+   * laundry, and has a Layer set in the item editor. The Layer is what tells
+   * the mixer which track it belongs to.
+   */
+  const closet = useMemo(() => wearableByLayer(items), [items])
+
+  const closetIsEmpty = useMemo(
+    () => Object.values(closet).every((track) => !track?.length),
+    [closet]
+  )
 
   const tracks = (prefs.tracks ?? []).filter((key) => layerByKey(key, customTracks))
   const available = layers.filter((l) => !tracks.includes(l.key))
@@ -435,6 +440,23 @@ export function OutfitMixer() {
               <p className="text-sm font-medium">No tracks in view</p>
               <p className="max-w-[15rem] text-xs text-muted-foreground">
                 Add a custom category above, or show one of the built-in tracks.
+              </p>
+            </div>
+          ) : closetIsEmpty ? (
+            /* The closet is your wardrobe now, so an empty one means nothing is
+               tagged yet rather than that something is broken. Say exactly what
+               to do, because the Layer field is the non-obvious part. */
+            <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+              <Shirt className="size-7 text-muted-foreground/50" />
+              <p className="text-sm font-medium">Your closet is empty</p>
+              <p className="max-w-[17rem] text-xs leading-snug text-muted-foreground">
+                Clothes you own show up here. Add an item, set its category to
+                Clothes, and pick a Layer such as Tops or Footwear. The Layer is
+                what decides which track it lands in.
+              </p>
+              <p className="max-w-[17rem] text-[11px] leading-snug text-muted-foreground/80">
+                Anything dirty or in the laundry basket is held back until it is
+                washed.
               </p>
             </div>
           ) : (
